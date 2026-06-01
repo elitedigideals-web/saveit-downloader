@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="si">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SaveIt — Social Media Downloader</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#00f0c4">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="SaveIt">
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Sans:ital,wght@0,300;0,400;0,500;1,300&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #080b14;
+    --surface: #0f1320;
+    --border: rgba(255,255,255,0.07);
+    --accent-yt: #ff2d55;
+    --accent-tt: #00f0c4;
+    --accent-ig: #c77dff;
+    --text: #eef0f8;
+    --muted: #6b7299;
+    --glow-r: rgba(255,45,85,0.25);
+    --glow-g: rgba(0,240,196,0.2);
+    --glow-p: rgba(199,125,255,0.2);
+  }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    font-family: 'DM Sans', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* ── NOISE OVERLAY ── */
+  body::before {
+    content: '';
+    position: fixed; inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+    pointer-events: none; z-index: 0;
+  }
+
+  /* ── MESH BG ── */
+  .mesh {
+    position: fixed; inset: 0; z-index: 0; overflow: hidden; pointer-events: none;
+  }
+  .mesh-blob {
+    position: absolute; border-radius: 50%; filter: blur(120px); opacity: 0.18;
+    animation: drift 18s ease-in-out infinite alternate;
+  }
+  .blob1 { width: 700px; height: 700px; background: var(--accent-yt); top: -20%; left: -15%; animation-delay: 0s; }
+  .blob2 { width: 600px; height: 600px; background: var(--accent-tt); bottom: -10%; right: -10%; animation-delay: -6s; }
+  .blob3 { width: 500px; height: 500px; background: var(--accent-ig); top: 40%; left: 40%; animation-delay: -12s; }
+
+  @keyframes drift {
+    from { transform: translate(0, 0) scale(1); }
+    to   { transform: translate(40px, 30px) scale(1.08); }
+  }
+
+  /* ── LAYOUT ── */
+  .container { position: relative; z-index: 1; max-width: 780px; margin: 0 auto; padding: 0 24px; }
+
+  /* ── HEADER ── */
+  header {
+    padding: 32px 0 0;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .logo {
+    font-family: 'Syne', sans-serif;
+    font-size: 22px; font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .logo span { color: var(--accent-tt); }
+  .badge {
+    font-size: 11px; font-weight: 500; letter-spacing: 1.5px;
+    background: rgba(0,240,196,0.1); color: var(--accent-tt);
+    border: 1px solid rgba(0,240,196,0.25);
+    padding: 4px 10px; border-radius: 20px; text-transform: uppercase;
+  }
+
+  /* ── HERO ── */
+  .hero { text-align: center; padding: 72px 0 56px; }
+  .hero-eyebrow {
+    font-size: 12px; font-weight: 500; letter-spacing: 3px;
+    color: var(--muted); text-transform: uppercase; margin-bottom: 20px;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+  }
+  .hero-eyebrow::before, .hero-eyebrow::after {
+    content: ''; flex: 1; max-width: 60px; height: 1px; background: var(--border);
+  }
+  h1 {
+    font-family: 'Syne', sans-serif;
+    font-size: clamp(38px, 8vw, 68px);
+    font-weight: 800; line-height: 1.05;
+    letter-spacing: -2px; margin-bottom: 20px;
+  }
+  h1 em { font-style: normal; color: var(--accent-tt); }
+  .hero-sub {
+    font-size: 17px; color: var(--muted); line-height: 1.7;
+    max-width: 480px; margin: 0 auto 48px;
+  }
+
+  /* ── PLATFORM PILLS ── */
+  .platforms {
+    display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;
+    margin-bottom: 48px;
+  }
+  .pill {
+    display: flex; align-items: center; gap: 7px;
+    padding: 8px 16px; border-radius: 100px;
+    font-size: 13px; font-weight: 500; cursor: pointer;
+    border: 1.5px solid transparent;
+    transition: all 0.2s ease;
+  }
+  .pill svg { width: 16px; height: 16px; }
+  .pill-yt  { border-color: rgba(255,45,85,0.35);  color: var(--accent-yt);  background: rgba(255,45,85,0.06); }
+  .pill-tt  { border-color: rgba(0,240,196,0.35); color: var(--accent-tt); background: rgba(0,240,196,0.06); }
+  .pill-ig  { border-color: rgba(199,125,255,0.35); color: var(--accent-ig); background: rgba(199,125,255,0.06); }
+  .pill:hover { transform: translateY(-2px); filter: brightness(1.2); }
+
+  /* ── INPUT CARD ── */
+  .card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    padding: 32px;
+    position: relative;
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(0,240,196,0.4), transparent);
+  }
+
+  .input-row {
+    display: flex; gap: 12px; align-items: stretch; flex-wrap: wrap;
+  }
+  .url-wrap {
+    flex: 1; min-width: 0;
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(255,255,255,0.04);
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    padding: 0 16px;
+    transition: border-color 0.2s;
+  }
+  .url-wrap:focus-within {
+    border-color: rgba(0,240,196,0.5);
+    box-shadow: 0 0 0 3px rgba(0,240,196,0.08);
+  }
+  .url-icon { color: var(--muted); flex-shrink: 0; }
+  .url-input {
+    flex: 1; background: none; border: none; outline: none;
+    color: var(--text); font-family: 'DM Sans', sans-serif;
+    font-size: 15px; padding: 16px 0;
+    min-width: 0;
+  }
+  .url-input::placeholder { color: var(--muted); }
+
+  .btn-download {
+    padding: 0 28px; height: 56px;
+    background: linear-gradient(135deg, #00f0c4, #00bfa5);
+    color: #080b14; font-family: 'Syne', sans-serif;
+    font-size: 15px; font-weight: 700; letter-spacing: 0.3px;
+    border: none; border-radius: 12px; cursor: pointer;
+    transition: all 0.2s ease;
+    display: flex; align-items: center; gap: 8px;
+    white-space: nowrap; flex-shrink: 0;
+  }
+  .btn-download:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,240,196,0.35); }
+  .btn-download:active { transform: translateY(0); }
+  .btn-download:disabled { opacity: 0.6; cursor: not-allowed; transform: none; }
+
+  /* ── STATUS AREA ── */
+  .status-area { margin-top: 20px; min-height: 24px; }
+  .status-msg {
+    font-size: 13px; padding: 10px 14px; border-radius: 8px;
+    display: none; align-items: center; gap: 8px;
+  }
+  .status-msg.show { display: flex; }
+  .status-loading { background: rgba(255,255,255,0.05); color: var(--muted); }
+  .status-success { background: rgba(0,240,196,0.1); color: var(--accent-tt); border: 1px solid rgba(0,240,196,0.2); }
+  .status-error   { background: rgba(255,45,85,0.1);  color: var(--accent-yt); border: 1px solid rgba(255,45,85,0.2); }
+
+  .spinner {
+    width: 16px; height: 16px; border: 2px solid rgba(255,255,255,0.15);
+    border-top-color: var(--accent-tt); border-radius: 50%;
+    animation: spin 0.7s linear infinite; flex-shrink: 0;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  /* ── RESULT CARD ── */
+  #result { display: none; margin-top: 16px; }
+  .result-card {
+    background: rgba(0,240,196,0.04);
+    border: 1px solid rgba(0,240,196,0.15);
+    border-radius: 14px; padding: 20px 24px;
+  }
+  .result-title {
+    font-family: 'Syne', sans-serif;
+    font-size: 16px; font-weight: 700; margin-bottom: 12px;
+    color: var(--text); line-height: 1.4;
+  }
+  .result-meta {
+    font-size: 13px; color: var(--muted); margin-bottom: 16px;
+    display: flex; gap: 16px; flex-wrap: wrap;
+  }
+  .result-meta span { display: flex; align-items: center; gap: 5px; }
+  .dl-buttons { display: flex; gap: 10px; flex-wrap: wrap; }
+  .dl-btn {
+    padding: 10px 20px; border-radius: 10px; font-size: 13px;
+    font-weight: 600; cursor: pointer; border: 1.5px solid;
+    text-decoration: none; display: inline-flex; align-items: center; gap: 6px;
+    transition: all 0.2s;
+  }
+  .dl-btn-primary { background: var(--accent-tt); color: #080b14; border-color: var(--accent-tt); }
+  .dl-btn-primary:hover { box-shadow: 0 4px 20px rgba(0,240,196,0.4); transform: translateY(-1px); }
+  .dl-btn-sec { background: transparent; color: var(--muted); border-color: var(--border); }
+  .dl-btn-sec:hover { color: var(--text); border-color: rgba(255,255,255,0.2); }
+
+  /* ── INFO NOTICE ── */
+  .notice {
+    margin-top: 16px; padding: 14px 18px;
+    background: rgba(255,255,255,0.03);
+    border-radius: 10px; border: 1px solid var(--border);
+    font-size: 12.5px; color: var(--muted); line-height: 1.7;
+    display: flex; gap: 10px;
+  }
+  .notice svg { flex-shrink: 0; margin-top: 2px; color: #f5a623; }
+
+  /* ── HOW TO ── */
+  .how { padding: 72px 0 32px; }
+  .section-label {
+    font-size: 11px; letter-spacing: 3px; text-transform: uppercase;
+    color: var(--muted); margin-bottom: 32px; text-align: center;
+  }
+  .steps { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; }
+  .step {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 16px; padding: 24px 20px;
+    position: relative; overflow: hidden;
+    transition: transform 0.2s, border-color 0.2s;
+  }
+  .step:hover { transform: translateY(-4px); border-color: rgba(0,240,196,0.2); }
+  .step-num {
+    font-family: 'Syne', sans-serif;
+    font-size: 48px; font-weight: 800; line-height: 1;
+    color: rgba(255,255,255,0.05); position: absolute;
+    top: 12px; right: 16px;
+  }
+  .step-icon {
+    width: 44px; height: 44px; border-radius: 12px;
+    background: rgba(0,240,196,0.1); display: flex; align-items: center; justify-content: center;
+    color: var(--accent-tt); margin-bottom: 14px;
+  }
+  .step h3 { font-family: 'Syne', sans-serif; font-size: 15px; font-weight: 700; margin-bottom: 8px; }
+  .step p  { font-size: 13px; color: var(--muted); line-height: 1.6; }
+
+  /* ── FOOTER ── */
+  footer {
+    padding: 40px 0 32px; text-align: center;
+    border-top: 1px solid var(--border); margin-top: 64px;
+    font-size: 13px; color: var(--muted); line-height: 1.8;
+  }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--accent-tt); }
+
+  /* ── RESPONSIVE ── */
+  @media (max-width: 520px) {
+    .input-row { flex-direction: column; }
+    .btn-download { width: 100%; justify-content: center; }
+    .card { padding: 20px; }
+    h1 { letter-spacing: -1px; }
+  }
+</style>
+</head>
+<body>
+
+<div class="mesh">
+  <div class="mesh-blob blob1"></div>
+  <div class="mesh-blob blob2"></div>
+  <div class="mesh-blob blob3"></div>
+</div>
+
+<div class="container">
+  <header>
+    <div class="logo">Save<span>It</span></div>
+    <div class="badge">Watermark Free</div>
+  </header>
+
+  <section class="hero">
+    <p class="hero-eyebrow">Free · Fast · Clean</p>
+    <h1>Download <em>Without</em><br>Watermarks</h1>
+    <p class="hero-sub">YouTube, TikTok, Instagram — video සහ image watermark නැතිව ගන්න. URL paste කරන්න, ඒකයි.</p>
+
+    <div class="platforms">
+      <div class="pill pill-yt">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M23.5 6.2a3 3 0 0 0-2.1-2.1C19.5 3.6 12 3.6 12 3.6s-7.5 0-9.4.5A3 3 0 0 0 .5 6.2C0 8.1 0 12 0 12s0 3.9.5 5.8a3 3 0 0 0 2.1 2.1c1.9.5 9.4.5 9.4.5s7.5 0 9.4-.5a3 3 0 0 0 2.1-2.1C24 15.9 24 12 24 12s0-3.9-.5-5.8zM9.6 15.6V8.4l6.3 3.6-6.3 3.6z"/></svg>
+        YouTube
+      </div>
+      <div class="pill pill-tt">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V9.06a8.26 8.26 0 0 0 4.83 1.55V7.17a4.85 4.85 0 0 1-1.06-.48z"/></svg>
+        TikTok
+      </div>
+      <div class="pill pill-ig">
+        <svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zm0-2.163c-3.259 0-3.667.014-4.947.072-4.358.2-6.78 2.618-6.98 6.98-.059 1.281-.073 1.689-.073 4.948 0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98 1.281.058 1.689.072 4.948.072 3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98-1.281-.059-1.69-.073-4.949-.073zm0 5.838c-3.403 0-6.162 2.759-6.162 6.162s2.759 6.163 6.162 6.163 6.162-2.759 6.162-6.163c0-3.403-2.759-6.162-6.162-6.162zm0 10.162c-2.209 0-4-1.79-4-4 0-2.209 1.791-4 4-4s4 1.791 4 4c0 2.21-1.791 4-4 4zm6.406-11.845c-.796 0-1.441.645-1.441 1.44s.645 1.44 1.441 1.44c.795 0 1.439-.645 1.439-1.44s-.644-1.44-1.439-1.44z"/></svg>
+        Instagram
+      </div>
+    </div>
+
+    <div class="card">
+      <div class="input-row">
+        <div class="url-wrap">
+          <svg class="url-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+            <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+          </svg>
+          <input class="url-input" id="urlInput" type="url"
+            placeholder="Video / Reel / Post URL paste කරන්න…"
+            autocomplete="off" spellcheck="false" />
+        </div>
+        <button class="btn-download" id="downloadBtn" onclick="handleDownload()">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+            <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+            <polyline points="7 10 12 15 17 10"/>
+            <line x1="12" y1="15" x2="12" y2="3"/>
+          </svg>
+          Download
+        </button>
+      </div>
+
+      <div class="status-area">
+        <div class="status-msg status-loading" id="statusLoading">
+          <div class="spinner"></div>
+          <span>URL check කරනවා, ටිකක් ඉඳගන්න…</span>
+        </div>
+        <div class="status-msg status-success" id="statusSuccess">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"/></svg>
+          <span id="statusSuccessText">Media found!</span>
+        </div>
+        <div class="status-msg status-error" id="statusError">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+          <span id="statusErrorText">Error.</span>
+        </div>
+      </div>
+
+      <div id="result">
+        <div class="result-card">
+          <div class="result-title" id="resultTitle">Video Title</div>
+          <div class="result-meta" id="resultMeta"></div>
+          <div class="dl-buttons" id="dlButtons"></div>
+        </div>
+      </div>
+
+      <div class="notice">
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/>
+        </svg>
+        <span>මෙම tool backend API (RapidAPI / y2mate API) සමඟ connect කළ යුතුය. Production use සඳහා පහත <strong>Setup Guide</strong> බලන්න. Private / age-restricted content download කිරීම terms of service කඩ කළ හැකිය.</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- HOW TO USE -->
+  <section class="how">
+    <p class="section-label">භාවිත කරන ආකාරය</p>
+    <div class="steps">
+      <div class="step">
+        <span class="step-num">1</span>
+        <div class="step-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+        </div>
+        <h3>URL Copy කරන්න</h3>
+        <p>YouTube, TikTok, Instagram post/reel/story URL copy කරන්න.</p>
+      </div>
+      <div class="step">
+        <span class="step-num">2</span>
+        <div class="step-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+        </div>
+        <h3>Paste කරන්න</h3>
+        <p>ඉහළ input field එකට URL paste කරන්න.</p>
+      </div>
+      <div class="step">
+        <span class="step-num">3</span>
+        <div class="step-icon">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+        </div>
+        <h3>Download කරන්න</h3>
+        <p>Quality select කර watermark නැති file download කරන්න.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- API SETUP GUIDE -->
+  <section style="padding: 0 0 64px;">
+    <div class="card" style="border-color: rgba(199,125,255,0.2);">
+      <h3 style="font-family:'Syne',sans-serif;font-size:18px;font-weight:700;margin-bottom:12px;color:var(--accent-ig)">
+        🛠️ Developer Setup Guide
+      </h3>
+      <p style="font-size:13px;color:var(--muted);line-height:1.8;margin-bottom:16px;">
+        Production site සඳහා පහත APIs connect කරන්න:
+      </p>
+      <div style="display:flex;flex-direction:column;gap:10px;">
+        <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:14px 16px;font-size:13px;">
+          <strong style="color:var(--accent-yt)">YouTube</strong>
+          <span style="color:var(--muted)"> — RapidAPI: <code style="color:var(--accent-tt);font-size:12px;">youtube-media-downloader.p.rapidapi.com</code></span>
+        </div>
+        <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:14px 16px;font-size:13px;">
+          <strong style="color:var(--accent-tt)">TikTok</strong>
+          <span style="color:var(--muted)"> — RapidAPI: <code style="color:var(--accent-tt);font-size:12px;">tiktok-download-without-watermark.p.rapidapi.com</code></span>
+        </div>
+        <div style="background:rgba(255,255,255,0.04);border-radius:10px;padding:14px 16px;font-size:13px;">
+          <strong style="color:var(--accent-ig)">Instagram</strong>
+          <span style="color:var(--muted)"> — RapidAPI: <code style="color:var(--accent-tt);font-size:12px;">instagram-downloader-download-instagram-videos4.p.rapidapi.com</code></span>
+        </div>
+      </div>
+      <p style="font-size:12px;color:var(--muted);margin-top:14px;">
+        <strong>rapidapi.com</strong> account හදාගෙන API key ගන්න. JavaScript fetch() call හරහා <code>X-RapidAPI-Key</code> header add කරන්න.
+      </p>
+    </div>
+  </section>
+
+  <footer>
+    <p>© 2026 SaveIt · Watermark-Free Downloader · Educational Tool Only</p>
+    <p style="margin-top:6px;font-size:11px;">Content creators' rights respect කරන්න. Personal use only.</p>
+  </footer>
+</div>
+
+<script>
+  // ── Detect platform ──
+  function detectPlatform(url) {
+    if (/youtube\.com|youtu\.be/.test(url)) return 'youtube';
+    if (/tiktok\.com/.test(url)) return 'tiktok';
+    if (/instagram\.com/.test(url)) return 'instagram';
+    return null;
+  }
+
+  // ── Show/hide status ──
+  function showStatus(type, msg) {
+    ['Loading','Success','Error'].forEach(t =>
+      document.getElementById('status'+t).classList.remove('show'));
+    if (type === 'loading') {
+      document.getElementById('statusLoading').classList.add('show');
+    } else if (type === 'success') {
+      document.getElementById('statusSuccessText').textContent = msg;
+      document.getElementById('statusSuccess').classList.add('show');
+    } else if (type === 'error') {
+      document.getElementById('statusErrorText').textContent = msg;
+      document.getElementById('statusError').classList.add('show');
+    }
+    document.getElementById('result').style.display = 'none';
+  }
+
+  function clearStatus() {
+    ['Loading','Success','Error'].forEach(t =>
+      document.getElementById('status'+t).classList.remove('show'));
+    document.getElementById('result').style.display = 'none';
+  }
+
+  // ── Build result card ──
+  function showResult(data) {
+    document.getElementById('resultTitle').textContent = data.title || 'Media Ready';
+
+    const meta = document.getElementById('resultMeta');
+    meta.innerHTML = '';
+    if (data.platform) meta.innerHTML += `<span>📱 ${data.platform}</span>`;
+    if (data.duration)  meta.innerHTML += `<span>⏱ ${data.duration}</span>`;
+    if (data.quality)   meta.innerHTML += `<span>🎬 ${data.quality}</span>`;
+
+    const btns = document.getElementById('dlButtons');
+    btns.innerHTML = '';
+
+    (data.links || []).forEach((lnk, i) => {
+      const a = document.createElement('a');
+      a.href = lnk.url; a.target = '_blank'; a.rel = 'noopener noreferrer';
+      a.className = 'dl-btn ' + (i === 0 ? 'dl-btn-primary' : 'dl-btn-sec');
+      a.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg> ${lnk.label}`;
+      btns.appendChild(a);
+    });
+
+    document.getElementById('result').style.display = 'block';
+    showStatus('success', `${data.platform || 'Media'} ready! ✓`);
+  }
+
+  // ── RapidAPI Key ──
+  const RAPID_KEY = '3fc2f025edmshc485677cbb991cbp1f613bjsna3e051e6cc65';
+
+  // CORS fix: browser direct API call block වෙනවා
+  // corsproxy.io හරහා route කරනවා
+  async function apiFetch(apiUrl, hostHeader) {
+    const proxyUrl = 'https://corsproxy.io/?' + encodeURIComponent(apiUrl);
+    const res = await fetch(proxyUrl, {
+      headers: {
+        'x-rapidapi-key':  RAPID_KEY,
+        'x-rapidapi-host': hostHeader
+      }
+    });
+    if (!res.ok) throw new Error('API error: HTTP ' + res.status);
+    return res.json();
+  }
+
+  // ── TikTok Download (No Watermark) ──
+  async function fetchTikTok(url) {
+    const apiUrl = 'https://tiktok-video-no-watermark2.p.rapidapi.com/?url='
+                   + encodeURIComponent(url) + '&hd=1';
+    const d = await apiFetch(apiUrl, 'tiktok-video-no-watermark2.p.rapidapi.com');
+    if (!d || d.code !== 0) throw new Error(d?.msg || 'TikTok video not found');
+    const info = d.data;
+    const links = [];
+    if (info.play)   links.push({ label: 'MP4 No Watermark (HD)', url: info.play });
+    if (info.wmplay) links.push({ label: 'MP4 Original', url: info.wmplay });
+    if (info.music)  links.push({ label: 'MP3 Music', url: info.music });
+    return {
+      title: info.title || 'TikTok Video',
+      platform: 'TikTok',
+      duration: info.duration ? info.duration + 's' : '',
+      quality: 'HD No Watermark',
+      links
+    };
+  }
+
+  // ── YouTube Download ──
+  async function fetchYouTube(url) {
+    const vid = extractYTId(url);
+    if (!vid) throw new Error('YouTube video ID හොයාගන්නට බෑ');
+    const apiUrl = 'https://youtube-media-downloader.p.rapidapi.com/v2/video/details?videoId=' + vid;
+    const d = await apiFetch(apiUrl, 'youtube-media-downloader.p.rapidapi.com');
+    if (!d || !d.status) throw new Error('YouTube video not found');
+    const links = [];
+    (d.videos?.items || []).slice(0, 4).forEach(v => {
+      if (v.url) links.push({ label: 'MP4 ' + (v.height || '?') + 'p', url: v.url });
+    });
+    if (d.audios?.items?.[0]?.url)
+      links.push({ label: 'MP3 Audio', url: d.audios.items[0].url });
+    return {
+      title: d.title || 'YouTube Video',
+      platform: 'YouTube',
+      duration: d.lengthSeconds ? formatDur(d.lengthSeconds) : '',
+      quality: 'Up to 1080p',
+      links
+    };
+  }
+
+  function extractYTId(url) {
+    const m = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
+    return m ? m[1] : '';
+  }
+  function formatDur(s) {
+    const m = Math.floor(s / 60), sec = s % 60;
+    return m + ':' + String(sec).padStart(2, '0');
+  }
+
+  // ── Instagram Download ──
+  async function fetchInstagram(url) {
+    const apiUrl = 'https://instagram-downloader-download-instagram-videos4.p.rapidapi.com/index?url='
+                   + encodeURIComponent(url);
+    const d = await apiFetch(apiUrl, 'instagram-downloader-download-instagram-videos4.p.rapidapi.com');
+    const links = [];
+    const items = Array.isArray(d) ? d : (d.url ? [d] : []);
+    items.forEach((item, i) => {
+      if (item.url) links.push({
+        label: (item.type === 'image' ? 'Image ' : 'Video ') + (i + 1),
+        url: item.url
+      });
+    });
+    if (!links.length) throw new Error('Instagram media not found. Public post/reel URL use කරන්න.');
+    return { title: 'Instagram Post', platform: 'Instagram', quality: 'Original', links };
+  }
+
+  // ── Main fetch router ──
+  async function fetchMediaInfo(url, platform) {
+    if (platform === 'tiktok')    return await fetchTikTok(url);
+    if (platform === 'youtube')   return await fetchYouTube(url);
+    if (platform === 'instagram') return await fetchInstagram(url);
+    throw new Error('Unsupported platform');
+  }
+
+  // ── Main handler ──
+  async function handleDownload() {
+    const url = document.getElementById('urlInput').value.trim();
+    if (!url) {
+      showStatus('error', 'URL එකක් enter කරන්න!');
+      return;
+    }
+
+    const platform = detectPlatform(url);
+    if (!platform) {
+      showStatus('error', 'YouTube, TikTok, හෝ Instagram URL එකක් paste කරන්න.');
+      return;
+    }
+
+    const btn = document.getElementById('downloadBtn');
+    btn.disabled = true;
+    showStatus('loading');
+
+    try {
+      const data = await fetchMediaInfo(url, platform);
+      if (data) {
+        showResult(data);
+      } else {
+        showStatus('error', 'Media fetch කරන්නට නොහැකිය. URL check කරන්න.');
+      }
+    } catch (e) {
+      showStatus('error', 'Network error: ' + e.message);
+    } finally {
+      btn.disabled = false;
+    }
+  }
+
+  // Enter key support
+  document.getElementById('urlInput').addEventListener('keydown', e => {
+    if (e.key === 'Enter') handleDownload();
+  });
+
+  // Service Worker register (PWA)
+  if ("serviceWorker" in navigator) {
+    window.addEventListener("load", () => {
+      navigator.serviceWorker.register("sw.js").catch(() => {});
+    });
+  }
+
+  // Clear on empty
+  document.getElementById('urlInput').addEventListener('input', e => {
+    if (!e.target.value) clearStatus();
+  });
+</script>
+</body>
+</html>
