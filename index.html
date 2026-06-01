@@ -489,33 +489,22 @@
     showStatus('success', `${data.platform || 'Media'} ready! ✓`);
   }
 
-  // ── RapidAPI Key ──
   const RAPID_KEY = '3fc2f025edmshc485677cbb991cbp1f613bjsna3e051e6cc65';
 
-  // RapidAPI direct call — CORS headers ඒ API වලින්ම set කරනවා
-  async function apiFetch(apiUrl, hostHeader) {
-    const res = await fetch(apiUrl, {
-      method: 'GET',
-      headers: {
-        'x-rapidapi-key':  RAPID_KEY,
-        'x-rapidapi-host': hostHeader
-      }
-    });
-    if (!res.ok) throw new Error('API error: HTTP ' + res.status);
-    return res.json();
-  }
-
-  // ── TikTok Download (No Watermark) ──
+  // TikTok — uses a free no-auth API that doesn't need CORS proxy
   async function fetchTikTok(url) {
-    const apiUrl = 'https://tiktok-video-no-watermark2.p.rapidapi.com/?url='
-                   + encodeURIComponent(url) + '&hd=1';
-    const d = await apiFetch(apiUrl, 'tiktok-video-no-watermark2.p.rapidapi.com');
-    if (!d || d.code !== 0) throw new Error(d?.msg || 'TikTok video not found');
+    // Use tikwm.com free API — no key needed, no CORS issues
+    const apiUrl = 'https://www.tikwm.com/api/?url=' + encodeURIComponent(url) + '&hd=1';
+    const res = await fetch(apiUrl);
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const d = await res.json();
+    if (!d || d.code !== 0) throw new Error(d?.msg || 'Video not found');
     const info = d.data;
     const links = [];
-    if (info.play)   links.push({ label: '⬇ MP4 No Watermark (HD)', url: info.play });
-    if (info.wmplay) links.push({ label: '⬇ MP4 Original', url: info.wmplay });
-    if (info.music)  links.push({ label: '🎵 MP3 Music', url: info.music });
+    if (info.play)      links.push({ label: '⬇ MP4 No Watermark (HD)', url: info.play });
+    if (info.wmplay)    links.push({ label: '⬇ MP4 Original', url: info.wmplay });
+    if (info.hdplay)    links.push({ label: '⬇ MP4 HD', url: info.hdplay });
+    if (info.music)     links.push({ label: '🎵 MP3 Music', url: info.music });
     return {
       title: info.title || 'TikTok Video',
       platform: 'TikTok',
@@ -525,62 +514,53 @@
     };
   }
 
-  // ── YouTube Download ──
+  // YouTube — uses yt-dlp compatible free API
   async function fetchYouTube(url) {
     const vid = extractYTId(url);
-    if (!vid) throw new Error('YouTube video ID හොයාගන්නට බෑ');
-    const apiUrl = 'https://youtube-media-downloader.p.rapidapi.com/v2/video/details?videoId=' + vid;
-    const d = await apiFetch(apiUrl, 'youtube-media-downloader.p.rapidapi.com');
-    if (!d || !d.status) throw new Error('YouTube video not found');
-    const links = [];
-    (d.videos?.items || []).slice(0, 4).forEach(v => {
-      if (v.url) links.push({ label: '⬇ MP4 ' + (v.height || '?') + 'p', url: v.url });
+    if (!vid) throw new Error('YouTube URL valid නෑ');
+    // Use cobalt.tools API — free, no key, CORS ok
+    const res = await fetch('https://api.cobalt.tools/api/json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ url: url, vQuality: '720', filenamePattern: 'basic' })
     });
-    if (d.audios?.items?.[0]?.url)
-      links.push({ label: '🎵 MP3 Audio', url: d.audios.items[0].url });
-    return {
-      title: d.title || 'YouTube Video',
-      platform: 'YouTube',
-      duration: d.lengthSeconds ? formatDur(d.lengthSeconds) : '',
-      quality: 'Up to 1080p',
-      links
-    };
+    if (!res.ok) throw new Error('YouTube API error: ' + res.status);
+    const d = await res.json();
+    if (d.status === 'error') throw new Error(d.text || 'YouTube error');
+    const links = [];
+    if (d.url) links.push({ label: '⬇ MP4 Download', url: d.url });
+    if (d.audio) links.push({ label: '🎵 MP3 Audio', url: d.audio });
+    if (!links.length) throw new Error('YouTube links not found');
+    return { title: 'YouTube Video', platform: 'YouTube', quality: '720p', links };
   }
 
   function extractYTId(url) {
     const m = url.match(/(?:v=|youtu\.be\/)([A-Za-z0-9_-]{11})/);
     return m ? m[1] : '';
   }
-  function formatDur(s) {
-    const m = Math.floor(s / 60), sec = s % 60;
-    return m + ':' + String(sec).padStart(2, '0');
-  }
 
-  // ── Instagram Download ──
+  // Instagram — cobalt.tools supports instagram too
   async function fetchInstagram(url) {
-    const apiUrl = 'https://instagram-downloader-download-instagram-videos4.p.rapidapi.com/index?url='
-                   + encodeURIComponent(url);
-    const d = await apiFetch(apiUrl, 'instagram-downloader-download-instagram-videos4.p.rapidapi.com');
-    const links = [];
-    const items = Array.isArray(d) ? d : (d.url ? [d] : []);
-    items.forEach((item, i) => {
-      if (item.url) links.push({
-        label: (item.type === 'image' ? '🖼 Image ' : '⬇ Video ') + (i + 1),
-        url: item.url
-      });
+    const res = await fetch('https://api.cobalt.tools/api/json', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+      body: JSON.stringify({ url: url, filenamePattern: 'basic' })
     });
-    if (!links.length) throw new Error('Instagram media not found. Public post/reel use කරන්න.');
+    if (!res.ok) throw new Error('Instagram API error: ' + res.status);
+    const d = await res.json();
+    if (d.status === 'error') throw new Error(d.text || 'Instagram error');
+    const links = [];
+    if (d.url) links.push({ label: '⬇ Download', url: d.url });
+    if (!links.length) throw new Error('Instagram media not found. Public post use කරන්න.');
     return { title: 'Instagram Post', platform: 'Instagram', quality: 'Original', links };
   }
 
-  // ── Main fetch router ──
   async function fetchMediaInfo(url, platform) {
     if (platform === 'tiktok')    return await fetchTikTok(url);
     if (platform === 'youtube')   return await fetchYouTube(url);
     if (platform === 'instagram') return await fetchInstagram(url);
     throw new Error('Unsupported platform');
   }
-
   // ── Main handler ──
   async function handleDownload() {
     const url = document.getElementById('urlInput').value.trim();
@@ -632,4 +612,3 @@
 </script>
 </body>
 </html>
-
