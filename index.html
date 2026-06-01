@@ -485,8 +485,10 @@
       btns.appendChild(a);
     });
 
-    document.getElementById('result').style.display = 'block';
+    // show success message first (it hides result div internally)
     showStatus('success', `${data.platform || 'Media'} ready! ✓`);
+    // then show result card AFTER status (override the hide)
+    document.getElementById('result').style.display = 'block';
   }
 
   const RAPID_KEY = '3fc2f025edmshc485677cbb991cbp1f613bjsna3e051e6cc65';
